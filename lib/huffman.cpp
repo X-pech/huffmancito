@@ -137,7 +137,7 @@ bool huffman::decode(std::istream &is, std::ostream &os) {
 
 
     while (is) {
-        is.read(buffer, out_block_size);
+        is.read(buffer, BUFFER_SIZE);
         auto size = static_cast<size_t>(is.gcount());
         if (!size) break;
 
