@@ -67,7 +67,8 @@ void huffman::encode(std::istream &is, std::ostream &os) {
     }
     char buffer[BUFFER_SIZE];
     is.seekg(is.beg);
-    os.write(&buffer[0], sizeof(char)); // ZERO
+    char zero = 0;
+    os.write(&zero, sizeof(char)); // ZERO
 
     auto symb_amount = fr.size();
     huffman::BufferedWriter bwriter(os);
