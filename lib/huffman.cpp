@@ -17,8 +17,9 @@ typedef uint32_t ui;
 
 struct huffman::BufferedWriter {
     std::ostream &os;
-    char buffer, cur_cnt;
-    const static char BUFFER_SIZE = 8;
+    uint32_t buffer;
+    char cur_cnt;
+    const static char BUFFER_SIZE = 32;
 
     explicit BufferedWriter(std::ostream &os) :
             os(os),
@@ -27,12 +28,11 @@ struct huffman::BufferedWriter {
 
     void feed(const std::vector<bool> &code) {
         for (auto const &i : code) {
-            buffer += i << cur_cnt;
+            buffer |= i << cur_cnt;
             cur_cnt++;
             if (cur_cnt == BUFFER_SIZE) {
-                os.write(&buffer, sizeof(buffer));
-                cur_cnt = 0;
-                buffer = 0;
+                os.write(reinterpret_cast<char*>(&buffer), sizeof(buffer));
+                buffer = cur_cnt = 0;
             }
         }
     }
@@ -40,7 +40,7 @@ struct huffman::BufferedWriter {
     void end_chk() {
         if (cur_cnt) {
             cur_cnt = BUFFER_SIZE - cur_cnt;
-            os.write(&buffer, sizeof(buffer));
+            os.write(reinterpret_cast<char*>(&buffer), sizeof(buffer));
         }
         os.seekp(0);
         os.write(&cur_cnt, sizeof(cur_cnt));
@@ -87,7 +87,7 @@ void huffman::encode(std::istream &is, std::ostream &os) {
         if (fr[128 + i] <= 0) {
             continue;
         }
-        k = (char)i;
+        k = (char) i;
         v = fr[128 + i];
         os.write(&k, sizeof(k)); // FRD key
         os.write(reinterpret_cast<char *>(&v), sizeof(v)); // FRD val
@@ -105,7 +105,7 @@ void huffman::encode(std::istream &is, std::ostream &os) {
         for (size_t i = 0; i < size; i++) {
             bwriter.feed(codes[buffer[i]]); // data
         }
-     }
+    }
 
     bwriter.end_chk(); // write the tail and zeroes count
 }
@@ -118,7 +118,6 @@ bool huffman::decode(std::istream &is, std::ostream &os) {
         return false;
     }
 
-    //std::map<char, ui64> fr;
     ui64 fr[256];
     std::fill(fr, fr + 256, 0);
     size_t symb_amount;
@@ -145,34 +144,37 @@ bool huffman::decode(std::istream &is, std::ostream &os) {
     Tree tree(fr, symb_amount);
 
     char buffer[BUFFER_SIZE];
+    std::fill(buffer, buffer + BUFFER_SIZE, 0);
     const char out_block_size = 8;
 
+
+    char symb;
 
     while (is) {
         is.read(buffer, BUFFER_SIZE);
         auto size = static_cast<size_t>(is.gcount());
         if (!size) break;
 
-        char symb;
-
-        for (size_t i = 0; i < size - !(bool) (is); i++) {
-            symb = buffer[i];
-            for (char j = 0; j < out_block_size; j++) {
-                if (tree.chk_bit(symb, j)) {
-                    tree.write_chk_symb(os);
-                } else {
-                    return false;
+        if (is) {
+            for (size_t i = 0; i < size; i++) {
+                symb = buffer[i];
+                for (char j = 0; j < out_block_size; j++) {
+                    if (tree.chk_bit(symb, j)) {
+                        tree.write_chk_symb(os);
+                    } else {
+                        return false;
+                    }
                 }
             }
-        }
-
-        if (!is) {
-            symb = buffer[size - 1];
-            for (char j = 0; j < out_block_size - zeroes_cnt; j++) {
-                if (tree.chk_bit(symb, j)) {
-                    tree.write_chk_symb(os);
-                } else {
-                    return false;
+        } else {
+            for (size_t i = 0, bi = 0; i < size && bi < size * out_block_size - zeroes_cnt; i++) {
+                symb = buffer[i];
+                for (char j = 0; j < out_block_size && bi < size * out_block_size - zeroes_cnt; j++, bi++) {
+                    if (tree.chk_bit(symb, j)) {
+                        tree.write_chk_symb(os);
+                    } else {
+                        return false;
+                    }
                 }
             }
         }
