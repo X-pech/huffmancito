@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include <climits>
 
 #include "huffman.h"
 
@@ -59,31 +60,40 @@ void huffman::encode(std::istream &is, std::ostream &os) {
      * Encoded data
      * */
 
-    std::map<char, ui64> fr;
+    //std::map<char, ui64> fr;
+    ui64 fr[256];
+    std::fill(fr, fr + 256, 0);
     char x;
+    size_t symb_amount = 0;
     while (is.peek() != std::istream::traits_type::eof()) {
         is.read(&x, sizeof(char));
-        fr[x]++;
+        if (!fr[x + 128]) {
+            symb_amount++;
+        }
+        fr[x + 128]++;
     }
     char buffer[BUFFER_SIZE];
     is.seekg(is.beg);
     char zero = 0;
     os.write(&zero, sizeof(char)); // ZERO
 
-    auto symb_amount = fr.size();
     huffman::BufferedWriter bwriter(os);
     os.write(reinterpret_cast<char *>(&symb_amount), sizeof(symb_amount)); // Symbols amount
 
     char k;
     ui64 v;
-    for (const auto &i : fr) {
-        k = i.first;
-        v = i.second;
+    //for (const auto &i : fr) {
+    for (auto i = CHAR_MIN; i <= CHAR_MAX; i++) {
+        if (fr[128 + i] <= 0) {
+            continue;
+        }
+        k = (char)i;
+        v = fr[128 + i];
         os.write(&k, sizeof(k)); // FRD key
         os.write(reinterpret_cast<char *>(&v), sizeof(v)); // FRD val
     }
 
-    Tree tree(fr);
+    Tree tree(fr, symb_amount);
     std::map<char, std::vector<bool>> codes;
     tree.get_codes(codes);
 
@@ -95,7 +105,7 @@ void huffman::encode(std::istream &is, std::ostream &os) {
         for (size_t i = 0; i < size; i++) {
             bwriter.feed(codes[buffer[i]]); // data
         }
-    }
+     }
 
     bwriter.end_chk(); // write the tail and zeroes count
 }
@@ -108,7 +118,9 @@ bool huffman::decode(std::istream &is, std::ostream &os) {
         return false;
     }
 
-    std::map<char, ui64> freq;
+    //std::map<char, ui64> fr;
+    ui64 fr[256];
+    std::fill(fr, fr + 256, 0);
     size_t symb_amount;
     is.read(reinterpret_cast<char *>(&symb_amount), sizeof(symb_amount));
 
@@ -127,10 +139,10 @@ bool huffman::decode(std::istream &is, std::ostream &os) {
         if (!is) {
             return false;
         }
-        freq[k] = v;
+        fr[k + 128] = v;
     }
 
-    Tree tree(freq);
+    Tree tree(fr, symb_amount);
 
     char buffer[BUFFER_SIZE];
     const char out_block_size = 8;

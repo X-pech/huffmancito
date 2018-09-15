@@ -9,10 +9,11 @@
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <climits>
 
 class Tree {
 public:
-    Tree(std::map<char, uint64_t> &fr);
+    Tree(uint64_t fr[], const size_t &s);
     void get_codes(std::map<char, std::vector<bool>> &codes);
     bool chk_bit(char symb, char pos);
     void write_chk_symb(std::ostream &os);

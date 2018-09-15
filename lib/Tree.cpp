@@ -32,9 +32,9 @@ struct Tree::cmp {
 };
 
 
-Tree::Tree(std::map<char, uint64_t> &fr) {
+Tree::Tree(ui64 fr[], const size_t &size) {
 
-    _size = fr.size();
+    _size = size;
 
     if (_size == 0) {
         root = chk_node = nullptr;
@@ -43,8 +43,13 @@ Tree::Tree(std::map<char, uint64_t> &fr) {
 
     std::multiset<std::shared_ptr<Tree::Node>, cmp> nodes;
 
-    for (const auto &i : fr) {
+    /*for (const auto &i : fr) {
         nodes.insert(std::make_shared<Tree::Node>(i.first, i.second));
+    }*/
+    for (auto i = CHAR_MIN; i <= CHAR_MAX; i++) {
+        if (fr[i + 128] > 0) {
+            nodes.insert(std::make_shared<Tree::Node>(i, fr[i + 128]));
+        }
     }
 
     std::shared_ptr<Tree::Node> first, second;
